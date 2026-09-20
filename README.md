@@ -51,6 +51,7 @@ npx expo start
 
 ## Demo
 
-For at se en demonstration af appen åbn gerne filen
+For at se en demonstration af appen åbn gerne filen: ScreenRecording_09-20-2026 14-16-51_1-2.mp4
+der ligger til venstre i denne repo. 
 
 

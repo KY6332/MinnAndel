@@ -51,6 +51,6 @@ npx expo start
 
 ## Demo
 
-For at se en demonstration af appen:
+For at se en demonstration af appen åbn gerne filen
 
-[Se demovideoen her](INDSÆT-LINK-TIL-VIDEO-HER)
+

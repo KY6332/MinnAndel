@@ -1,57 +1,109 @@
-# MinAndel
+# MinnAndel 2.1 — INNT godkendelsesopgave 2
 
-MinAndel er en app til beboere og bestyrelsen i en andelsboligforening.
+Videreudvikling af [MinnAndel](https://github.com/KY6332/MinnAndel), React Native/Expo. Appen har tre roller: **beboer**, **bestyrelse** og **vicevært**. Den oprindelige navigation, bookingidé og bestyrelsens opgaveoversigt er videreført.
 
-Ideen er at samle nogle af de vigtigste funktioner ét sted. Beboere kan blandt andet se information fra foreningen og booke fælles faciliteter, mens bestyrelsen kan se og håndtere relevante opgaver.
+> **Dette er en opdateringspakke** til det eksisterende GitHub-repository, ikke et selvstændigt Expo-projekt. Pakken indeholder ikke den oprindelige `assets/`, `index.js`, `package.json`, `.env` eller `node_modules/`.
 
-## Sådan starter du appen
+## Funktioner (kodeversion 2.1)
 
-1. Download/klon projektet
+| Rolle | Funktioner |
+| --- | --- |
+| Beboer | Fællesnyheder, enkel booking, QR-udlån, fejlmelding og status på egne fejlmeldinger, dokumenter |
+| Bestyrelse | Opret opgaver og nyheder, opret faciliteter, administrér kontakter, dokumentnoter og fejlmeldinger |
+| Vicevært | Se fejlmeldinger, skift status, se fællesfaciliteter, QR-udstyr |
+| Alle | Søgbare kontakter med opkald, dokumentbaseret chatbot/dokumentopslag, notifikationspræferencer, tydelig logout |
 
-2. Åbn en terminal i projektmappen og kør:
+Data gemmes i **Firestore** i liveversionen og i **AsyncStorage** i demotilstand (når Firebase-konfiguration mangler). Kontaktliste, booking, fejlmeldinger, opgaver og nyheder bliver ikke kun gemt i React state.
+
+**Begrænsninger:** Booking er kun ledig/optaget (ikke dato/tid); notifikationsindstillinger er lokale præferencer og sender ikke push; dokumenter er tekstnoter, ikke PDF-upload. Udstyrs-QR-scanning kræver `equipment`-dokumenter i Firestore. Et svar fra lokal dokumentopslag er **ikke generativ AI**.
+
+## Installér i eksisterende repository
+
+1. Tag backup eller lav en Git-branch.
+2. Kopiér hele indholdet af `MinnAndel_2_1_samlet_patch` oven i den eksisterende MinnAndel-mappe. Erstat identiske filer og flet mapper; behold `assets/`, `index.js`, `app.json`, `package.json`, `package-lock.json` og **din eksisterende `.env`**.
+3. Tjek `.gitignore`:
+
+```
+.env
+.env.*
+!.env.example
+.firebase/
+functions/node_modules/
+```
+
+4. Fra rodmappen:
 
 ```bash
 npm install
+npx expo install firebase expo-camera @react-native-async-storage/async-storage @react-navigation/native @react-navigation/native-stack react-native-screens react-native-safe-area-context
+npx expo start --clear
 ```
 
-3. Start appen:
+Scan QR-koden med Expo Go. Ved fejl: kopier fejlmeddelelsen, men del aldrig adgangskoder eller hemmelige nøgler.
+
+## Firebase
+
+Registrér en Firebase-webapp, og udfyld de seks `EXPO_PUBLIC_FIREBASE_*`-felter fra `.env.example` i din lokale `.env`. Aktivér Email/Password under Authentication og Firestore-databasen.
+
+Opret testbrugere via **Firebase Authentication** og deres individuelle `users/{AuthUID}`-dokumenter i Firestore med `role` lig `resident`, `board` eller `caretaker`. Roller kan ikke ændres fra mobilappen.
+
+Deploy Firestore-reglerne fra rodmappen (ny version giver beboeren adgang til query af **egne** fejlmeldinger, ikke andres):
 
 ```bash
-npx expo start
+npx firebase-tools login
+npx firebase-tools use --add
+npx firebase-tools deploy --only firestore:rules
 ```
 
-4. Scan QR-koden med Expo Go på din telefon.
+### Opret demo-data
 
-## Skærme
+Det meste kan oprettes direkte i appen med en **bestyrelseskonto**: nyheder, opgaver, kontakter, faciliteter og dokumentnoter. Opret dog manuelt i Firebase Console et dokument med ID `drill01` under collection `equipment`:
 
-- Forside
-- Booking
-- Bestyrelsen
+| Felt | Type | Værdi |
+| --- | --- | --- |
+| `name` | string | `Boremaskine` |
+| `description` | string | `Fællesværktøj` |
+| `status` | string | `available` |
+| `borrowerId` | null | `null` |
 
-## Funktioner
+QR-kodens indhold er `minnandel:item:drill01`. Prøv med medfølgende `qr-examples/drill01.png` vist på en anden skærm. Scanneren registrerer lån/aflevering atomisk via Firestore-transaktioner.
 
-### Forside
+### Test rolleflow
 
-- Se nyheder og information fra andelsboligforeningen
-- Gå til booking
-- Gå til bestyrelsesområdet
+1. Bestyrelse: Opret nyhed, kontakt og facilitet. Opret en fælles, publiceret dokumentnote. Log ud.
+2. Beboer: Se nyhed, book facilitet, søg kontakt, indsend fejlmelding og se dens status. Prøv dokumentopslaget. Log ud.
+3. Vicevært: Se beboerens fejlmelding og ændr status til "I gang". Log ud.
+4. Beboer: Kontrollér den opdaterede status.
+5. Kontrollér med en beboerkonto, at bestyrelsens **interne** dokumentnoter ikke vises.
 
-### Booking
+## Chatbot uden budget
 
-- Se foreningens fælles faciliteter
-- Se om en facilitet er ledig eller optaget
-- Book en ledig facilitet
-- Status ændres til "Booket af dig" efter booking
+I `.env` bør du have:
 
-### Bestyrelsen
+```
+EXPO_PUBLIC_AI_ENABLED=false
+```
 
-- Se næste bestyrelsesmøde
-- Se bestyrelsens opgaver
-- Marker opgaver som færdige
+Så bruger chatten **gratis lokalt dokumentopslag i tilladte Firestore-noter**, som markerer sine svar som ikke-AI. Det kræver ikke Firebase Blaze eller OpenAI-kald, men kræver, at der findes mindst én relevant dokumentnote.
 
-## Demo
+Hvis I senere får adgang til en betalingsopsætning, kan I deploye `functions/index.js` som `askAssociation` med hemmelig OpenAI-nøgle på serveren:
 
-For at se en demonstration af appen åbn gerne filen: ScreenRecording_09-20-2026 14-16-51_1-2.mp4
-der ligger til venstre i denne repo. 
+```bash
+cd functions && npm install && cd ..
+npx firebase-tools functions:secrets:set OPENAI_API_KEY
+npx firebase-tools deploy --only functions:askAssociation
+```
 
+Først efter vellykket deployment kan `EXPO_PUBLIC_AI_ENABLED=true` sættes i appens `.env`, og Expo genstartes. **Del aldrig OpenAI-nøglen i chat, GitHub eller Expo-variabler.** En tidligere delt nøgle bør tilbagekaldes. Firebase Functions kan kræve Blaze og OpenAI API-forespørgsler kan koste penge.
 
+## Opgave- og teststatus
+
+Se `OPGAVE_STATUS.md`, `SIMULEREDE_BRUGERINDTRYK.md` og `START_HER.txt`.
+
+**Simulerede indtryk er ikke interviews.** Kursuskravet om reel brugerinddragelse og en ny evalueringsrunde opfyldes ikke af to AI-genererede perspektiver. Rapporten må ikke påstå, at disse er faktisk empiri.
+
+**Demo/video:** Indsæt et nyt link her, når du har optaget videoen: `[MinnAndel 2.1 demovideo](INDSAET_LINK)`.
+
+**Kreditering ved delt repository:** Angiv faktiske bidrag, når der er flere udviklere. Rapporten er individuel.
+
+**Verifikation:** JS/JSX syntaks og dokumentopslagsenhedstest er udført på kildefilerne. Der er ikke udført en faktisk Expo Go-/Firebase-integrationstest eller en live-AI-deployment i denne levering.

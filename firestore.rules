@@ -1,0 +1,83 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function profilePath() { return /databases/$(database)/documents/users/$(request.auth.uid); }
+    function hasRole() { return signedIn() && exists(profilePath()) && get(profilePath()).data.role in ['resident', 'board', 'caretaker']; }
+    function board() { return hasRole() && get(profilePath()).data.role == 'board'; }
+    function caretaker() { return hasRole() && get(profilePath()).data.role == 'caretaker'; }
+    function resident() { return hasRole() && get(profilePath()).data.role == 'resident'; }
+    function owner() { return signedIn() && request.auth.uid == resource.data.createdBy; }
+    function bookingFields() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'bookedBy', 'updatedAt']);
+    }
+    function borrowFields() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'borrowerId', 'updatedAt']);
+    }
+    function validBorrow() {
+      return borrowFields() &&
+        ((resource.data.status == 'available' && request.resource.data.status == 'borrowed' && request.resource.data.borrowerId == request.auth.uid) ||
+        (resource.data.status == 'borrowed' && resource.data.borrowerId == request.auth.uid && request.resource.data.status == 'available' && request.resource.data.borrowerId == null));
+    }
+    function validBooking() {
+      return bookingFields() &&
+        ((resource.data.status == 'available' && request.resource.data.status == 'booked' && request.resource.data.bookedBy == request.auth.uid) ||
+        (resource.data.status == 'booked' && resource.data.bookedBy == request.auth.uid && request.resource.data.status == 'available' && request.resource.data.bookedBy == null));
+    }
+
+    match /users/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || board());
+      allow list: if board();
+      // Only Firebase Admin SDK / Console can assign roles; clients cannot grant themselves board access.
+      allow create, update, delete: if false;
+    }
+    match /contacts/{id} {
+      allow read: if hasRole();
+      allow create: if board() && request.resource.data.name is string && request.resource.data.phone is string;
+      allow update, delete: if board();
+    }
+    match /news/{id} {
+      allow read: if hasRole();
+      allow create, update, delete: if board();
+    }
+    match /facilities/{id} {
+      allow read: if hasRole();
+      allow create, delete: if board();
+      allow update: if board() || (hasRole() && validBooking());
+    }
+    match /equipment/{id} {
+      allow read: if hasRole();
+      allow create, delete: if board();
+      allow update: if board() || (hasRole() && validBorrow());
+    }
+    match /tasks/{id} {
+      allow read, write: if board();
+    }
+    match /reports/{id} {
+      allow get: if (caretaker() || board() || (resident() && owner()));
+      allow list: if caretaker() || board() || (resident() && owner());
+      allow create: if resident()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.status == 'open'
+        && request.resource.data.title is string
+        && request.resource.data.description is string
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.description.size() <= 2000;
+      allow update: if (caretaker() || board())
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+        && request.resource.data.status in ['open', 'in_progress', 'closed'];
+      allow delete: if board();
+    }
+    match /documents/{id} {
+      allow read: if board() || (hasRole() && resource.data.published == true && resource.data.visibility == 'members');
+      allow create: if board()
+        && request.resource.data.title is string
+        && request.resource.data.content is string
+        && request.resource.data.content.size() <= 15000
+        && request.resource.data.visibility in ['board', 'members']
+        && request.resource.data.published == true;
+      allow update, delete: if board();
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

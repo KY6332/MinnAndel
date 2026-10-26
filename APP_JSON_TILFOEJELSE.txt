@@ -1,0 +1,5 @@
+Tilføj følgende i den eksisterende "expo"-blok i app.json, når du vil lave en native build:
+
+"plugins": [["expo-camera", { "cameraPermission": "MinnAndel bruger kameraet til QR-registrering af fællesudstyr", "recordAudioAndroid": false }]]
+
+Expo Go kan få adgang til kameraet uden denne ændring.

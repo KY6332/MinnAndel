@@ -1,87 +1,50 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-} from 'react-native';
+import { Alert } from 'react-native';
+import { Page, Title, Sub, Section, Card, Button, Heading, Muted, Badge, Field, ErrorText } from '../components/UI';
+import { useApp } from '../context/AppContext';
+import useEntries from '../hooks/useEntries';
+import { createEntry, toggleFacility } from '../services/store';
 
-import styles from '../styles/styles';
-
+// Simpel reservation af en ressource, ikke en kalenderbooking med datoer.
 export default function BookingScreen() {
-  const [facilities, setFacilities] = useState([
-    {
-      id: '1',
-      name: 'Fælleslokale',
-      description: 'Plads til cirka 30 personer',
-      status: 'Ledig',
-    },
-    {
-      id: '2',
-      name: 'Gæsteværelse',
-      description: 'Overnatning for gæster',
-      status: 'Ledig',
-    },
-    {
-      id: '3',
-      name: 'Trailer',
-      description: 'Foreningens fælles trailer',
-      status: 'Optaget',
-    },
-  ]);
-
-  const bookFacility = (id) => {
-    setFacilities((currentFacilities) =>
-      currentFacilities.map((facility) =>
-        facility.id === id && facility.status === 'Ledig'
-          ? { ...facility, status: 'Booket af dig' }
-          : facility
-      )
-    );
-  };
-
-  return (
-    <View style={styles.screen}>
-      <Text style={styles.title}>Booking</Text>
-
-      <Text style={styles.subtitle}>
-        Her kan du booke foreningens fælles faciliteter.
-      </Text>
-
-      <FlatList
-        data={facilities}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => {
-          const canBook = item.status === 'Ledig';
-
-          return (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>{item.name}</Text>
-
-              <Text style={styles.cardText}>
-                {item.description}
-              </Text>
-
-              <Text style={styles.statusText}>
-                Status: {item.status}
-              </Text>
-
-              <TouchableOpacity
-                style={[
-                  styles.smallButton,
-                  !canBook && styles.disabledButton,
-                ]}
-                disabled={!canBook}
-                onPress={() => bookFacility(item.id)}
-              >
-                <Text style={styles.buttonText}>
-                  {canBook ? 'Book' : item.status}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          );
-        }}
-      />
-    </View>
-  );
+  const { user, demo, role } = useApp();
+  const { items, error, refresh } = useEntries('facilities');
+  const [busyId, setBusyId] = useState(null);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  async function toggle(facility) {
+    setBusyId(facility.id);
+    try { await toggleFacility(facility, user.uid, demo); refresh(); }
+    catch (e) { Alert.alert('Booking', e.message); }
+    finally { setBusyId(null); }
+  }
+  async function addFacility() {
+    if (!name.trim()) return;
+    setBusyId('new');
+    try {
+      await createEntry('facilities', { name: name.trim(), description: description.trim(), status: 'available', bookedBy: null }, demo);
+      setName(''); setDescription(''); refresh();
+    } catch (e) { Alert.alert('Facilitet', e.message); }
+    finally { setBusyId(null); }
+  }
+  return <Page>
+    <Title>Fællesfaciliteter</Title><Sub>Se, hvilke fællesressourcer der er ledige, og registrér din reservation.</Sub>
+    <ErrorText>{error}</ErrorText>
+    {items.length === 0 && <Card><Muted>Der er ingen faciliteter endnu. Bestyrelsen kan oprette den første.</Muted></Card>}
+    {items.map(f => {
+      const mine = f.bookedBy === user.uid;
+      const available = f.status === 'available';
+      return <Card key={f.id}>
+        <Heading>{f.name}</Heading><Muted>{f.description || 'Foreningens fællesfacilitet'}</Muted>
+        <Badge>{available ? '● Ledig' : mine ? '● Reserveret af dig' : '● Optaget'}</Badge>
+        <Button title={mine ? 'Annullér min reservation' : 'Reservér'} onPress={() => toggle(f)} disabled={!available && !mine} loading={busyId === f.id} />
+      </Card>;
+    })}
+    {role === 'board' && <><Section>Opret facilitet</Section><Card>
+      <Field label="Navn" value={name} onChangeText={setName} placeholder="Fx Fælleslokale" />
+      <Field label="Beskrivelse" value={description} onChangeText={setDescription} placeholder="Hvor og hvad kan bookes?" />
+      <Button title="Tilføj facilitet" disabled={!name.trim()} loading={busyId === 'new'} onPress={addFacility} />
+    </Card></>}
+    <Muted>Booking er et simpelt ledig/optaget-system i denne iteration. Dato- og tidsvalg er ikke implementeret.</Muted>
+  </Page>;
 }

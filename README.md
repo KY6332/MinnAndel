@@ -96,14 +96,11 @@ npx firebase-tools deploy --only functions:askAssociation
 
 Først efter vellykket deployment kan `EXPO_PUBLIC_AI_ENABLED=true` sættes i appens `.env`, og Expo genstartes. **Del aldrig OpenAI-nøglen i chat, GitHub eller Expo-variabler.** En tidligere delt nøgle bør tilbagekaldes. Firebase Functions kan kræve Blaze og OpenAI API-forespørgsler kan koste penge.
 
-## Opgave- og teststatus
-
-Se `OPGAVE_STATUS.md`, `SIMULEREDE_BRUGERINDTRYK.md` og `START_HER.txt`.
-
-**Simulerede indtryk er ikke interviews.** Kursuskravet om reel brugerinddragelse og en ny evalueringsrunde opfyldes ikke af to AI-genererede perspektiver. Rapporten må ikke påstå, at disse er faktisk empiri.
 
 **Demo/video:** Indsæt et nyt link her, når du har optaget videoen: `[MinnAndel 2.1 demovideo](INDSAET_LINK)`.
 
-**Kreditering ved delt repository:** Angiv faktiske bidrag, når der er flere udviklere. Rapporten er individuel.
 
-**Verifikation:** JS/JSX syntaks og dokumentopslagsenhedstest er udført på kildefilerne. Der er ikke udført en faktisk Expo Go-/Firebase-integrationstest eller en live-AI-deployment i denne levering.
+
+https://github.com/user-attachments/assets/1ed06eec-2bfb-4bfa-a7a8-117c0b204ed4
+
+
